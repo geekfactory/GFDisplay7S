@@ -1,0 +1,31 @@
+#######################################
+# Syntax Coloring Map for GFDisplay7S
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+GFDisplay7S	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+begin	KEYWORD2
+process	KEYWORD2
+clear	KEYWORD2
+home	KEYWORD2
+display	KEYWORD2
+noDisplay	KEYWORD2
+blinkDigit	KEYWORD2
+noBlinkDigit	KEYWORD2
+noBlink	KEYWORD2
+setCursor	KEYWORD2
+write	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
