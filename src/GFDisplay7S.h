@@ -4,8 +4,13 @@
 #include <Arduino.h>
 #include "Print.h"
 
-// stores the segments needed to form the 0 to 9 digits
-const uint8_t gliphSegments[18] = { 0x3F, 0x06, 0x5b, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71, 0x00, 0x40 };
+
+constexpr uint8_t GFDISPLAY7S_UNUSED_PIN = 0xFF;  //Use this value in the constructor to indicate a segment pin that is not used
+constexpr uint8_t GFDISPLAY7S_DISPLAY_BUFFER_SIZE = 16; // size of the display buffer, maximum number of digits supported
+
+
+constexpr uint8_t GFDISPLAY7S_FLAG_DP = 0x80; // decimal point
+constexpr uint8_t GFDISPLAY7S_FLAG_BLINK = 0x01; // blinking digit
 
 class GFDisplay7S : public Print {
 public:
@@ -15,7 +20,7 @@ public:
   * Configures a GFDisplay7S object to be used to drive multiplexed 7 segment displays.
   *
   * @param segmentPins An array containing the pin numbers that control individual segments on the
-  * displays, must contain eight uint8_t elements.
+  * displays, MUST contain eight uint8_t elements.
   * @param commonDriverPins An array containing the pin numbers that control the common anodes or
   * cathodes of the display array.
   * @param displaysCount The total number of multiplexed displays, this number should match the
@@ -86,11 +91,54 @@ public:
   */
   void blinkDigit(uint8_t digit);
 
+  /**
+  * @brief Disable blinking on the selected display digit
+  * 
+  * Disables the blinking effect on the provided digit of the display. The parameter defines which
+  * digit to stop blinking.
+  *
+  * @param digit The digit to stop blinking where 0 is the leftmost digit.
+  */
   void noBlinkDigit(uint8_t digit);
 
+  /**
+   * @brief Disable blinking on all display digits
+   * 
+   * Disables the blinking effect on all digits of the display.
+   */
   void noBlink();
 
+  /**
+   * @brief Sets the blink interval for blinking digits
+   * 
+   * Sets the blink interval for blinking digits. The default interval is 300 milliseconds.
+   * 
+   * @param interval The blink interval in milliseconds.
+   */
+  void setBlinkInterval(uint16_t interval);
+
+  /**
+  * @brief Sets the cursor to a specific position on the display
+  * 
+  * Sets the cursor to a specific position on the display. The next digit written to the display
+  * will be written at this position.
+  *
+  * @param pos The position to set the cursor to, where 0 is the leftmost digit.
+  */
   void setCursor(uint8_t pos);
+
+  /**
+   * @brief Sets or clears the decimal point on a specific digit
+   * 
+   * Sets or clears the decimal point on a specific digit of the display.
+   * 
+   * @param digit The digit to set or clear the decimal point on, where 0 is the leftmost digit.
+   * @param on If true, the decimal point is set, if false, the decimal point is cleared.
+   * 
+   * @note This function only modifies the decimal point segment of the specified digit, it does not
+   * affect the other segments of the digit.  
+   */
+  void setDecimalPoint(uint8_t digit, bool on);
 
   /**
   * @brief Writes a single digit to the display and advance the cursor
@@ -102,6 +150,11 @@ public:
   // import other write forms from print class
   using Print::write;
 protected:
+  /**
+  Constexpr defining the number of segments in a 7 segment display (including the dot segment)
+   */
+  static constexpr uint8_t NUM_SEGMENTS = 8;
+  
   /**
   Pointer to an array of 8 elements containing the pins where the display segments are connected
   */
@@ -134,35 +187,39 @@ protected:
 
   bool _blinkVar = false;
 
+  uint16_t _blinkInterval = 300;
+
   uint32_t _blinkTime = 0;
 
   /**
   Cursor that controls where the next digit will be written
   */
-  uint8_t _cursor;
+  uint8_t _cursor = 0;
 
   /**
-  Buffer that stores the gliph's codes that are shown in the displays
+  Buffer that stores the glyph's codes that are shown in the displays
   */
-  uint8_t _displayBuffer[16];
+  uint8_t _displayBuffer[GFDISPLAY7S_DISPLAY_BUFFER_SIZE];
 
-  uint8_t _effectBuffer[16];
+  uint8_t _effectBuffer[GFDISPLAY7S_DISPLAY_BUFFER_SIZE];
 
   /**
   Size in bytes for the display buffer.
   */
-  const uint8_t _displayBufferSize = sizeof(_displayBuffer);
+  const uint8_t _displayBufferSize = GFDISPLAY7S_DISPLAY_BUFFER_SIZE;
 
   /**
   For display multiplexing, selects the currently enabled display
   */
   uint8_t _currentDigit = 0;
 
-  uint8_t mapCharToGliph(uint8_t c);
+  uint8_t mapCharToGlyph(uint8_t c);
 
-  void writeSegmentPins(uint8_t digit);
+  void writeSegmentPins(uint8_t glyphCode, uint8_t effectFlags, bool dp);
 
   void shutDownDisplays();
+
+  void pinWrite(uint8_t pin, uint8_t val);
 };
 
 #endif

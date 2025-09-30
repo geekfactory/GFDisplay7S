@@ -13,7 +13,7 @@ The interrupt code was deliberately left outside the library so that, depending 
 We designed and tested the library using independent displays and the display array. Get them from our online store (only if you are in Mexico):
 
 * [7-segment display common anode or cathode](https://www.geekfactory.mx/producto/display-7-segmentos-anodo-catodo-comun/)
-* [4 digits 7-segment display array](hhttps://www.geekfactory.mx/producto/display-7-segmentos-4-digitos-f5461ah/)
+* [4 digits 7-segment display array](https://www.geekfactory.mx/producto/display-7-segmentos-4-digitos-f5461ah/)
 
 ## Project Objectives ##
 
