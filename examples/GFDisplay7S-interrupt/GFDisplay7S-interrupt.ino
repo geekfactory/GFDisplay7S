@@ -14,13 +14,13 @@
 // Array that defines the pins used for segments
 // Order: {a, b, c, d, e, f, g, dp}
 // Use GFDISPLAY7S_UNUSED_PIN if DP is not connected
-const uint8_t segmentPins[] = {5, 6, 7, 8, 9, 10, 11, GFDISPLAY7S_UNUSED_PIN};
+const uint8_t segmentPins[] = { 5, 6, 7, 8, 9, 10, 11, GFDISPLAY7S_UNUSED_PIN };
 
 // Array that defines the pins used to drive each digit’s common pin (left to right)
-const uint8_t commonPins[] = {12, 13, A0, A1, A2, A3};
+const uint8_t commonPins[] = { 12, 13, A0, A1, A2, A3 };
 
 // Instantiate an object to drive the display array
-GFDisplay7S display7s(segmentPins, commonPins, 6);
+GFDisplay7S display7s(segmentPins, commonPins, 6, 3000);
 
 void setup() {
   // Prepare object for use
@@ -32,18 +32,19 @@ void setup() {
   Timer1.attachInterrupt(refreshDisplayISR);
 
   // Print initial data
-  display7s.print("123456");
+  display7s.print("12.3456");
 
   // Make the last digit (index 5, zero-based) blink
   display7s.blinkDigit(5);
-
-  // Example: blink built-in LED separately, to show loop() remains free
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop() {
-  // Main loop remains free for other tasks — display is refreshed in background
-  digitalWrite(LED_BUILTIN, (millis() / 500) % 2);
+  // we can call delay or do other things in the main loop and
+  // the display will be updated anyway
+  display7s.setBlinkInterval(100);
+  delay(5000);
+  display7s.setBlinkInterval(300);
+  delay(5000);
 }
 
 /**

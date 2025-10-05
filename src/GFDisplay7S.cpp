@@ -1,12 +1,12 @@
 #include "GFDisplay7S.h"
 
-static constexpr uint8_t GFDISPLAY7S_GLYPH_CODE_MASK = 0x7F;
 // stores the segments needed to form the 0 to 9 digits
 static const uint8_t glyphSegments[18] = {0x3F, 0x06, 0x5b, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71, 0x00, 0x40};
 
-GFDisplay7S::GFDisplay7S(const uint8_t *const segmentPins, const uint8_t *const commonDriverPins, const uint8_t displaysCount, uint8_t segmentActiveLvl, uint8_t commonActiveLvl)
-    : _segmentPins(segmentPins), _commonDriverPins(commonDriverPins), _displaysCount(displaysCount), _segmentActiveLvl(segmentActiveLvl), _commonActiveLvl(commonActiveLvl)
+GFDisplay7S::GFDisplay7S(const uint8_t *const segmentPins, const uint8_t *const commonDriverPins, const uint8_t displaysCount, uint32_t refreshPeriod, uint8_t segmentActiveLvl, uint8_t commonActiveLvl)
+    : _segmentPins(segmentPins), _commonDriverPins(commonDriverPins), _displaysCount(displaysCount), _useISRTimebase(refreshPeriod > 0), _segmentActiveLvl(segmentActiveLvl), _commonActiveLvl(commonActiveLvl)
 {
+  _isrPeriod = refreshPeriod;
 }
 
 void GFDisplay7S::begin()
@@ -20,6 +20,19 @@ void GFDisplay7S::begin()
   for (uint8_t i = 0; i < _displaysCount; i++)
     if (_commonDriverPins[i] != GFDISPLAY7S_UNUSED_PIN)
       pinMode(_commonDriverPins[i], OUTPUT);
+
+  // if using ISR timebase, compute the number of ISR ticks needed to reach the blink interval
+  if (_useISRTimebase)
+  {
+    if (_isrPeriod == 0)
+      _isrPeriod = 5000; // default to 5 us if not set (should not happen)
+    _blinkTimer = 0;
+    setBlinkInterval(_blinkInterval);
+  }
+  else
+  {
+    _blinkTimer = millis();
+  }
 
   // turn off segments and common pin drivers
   shutDownDisplays();
@@ -36,20 +49,12 @@ void GFDisplay7S::process()
     return;
 
   // update blink variable if needed
-  uint32_t now = millis();
-  if (now - _blinkTime >= _blinkInterval)
-  {
-    _blinkTime = now;
-    _blinkVar = !_blinkVar;
-  }
-
-  uint8_t glyphCode = _displayBuffer[_currentDigit] & GFDISPLAY7S_GLYPH_CODE_MASK;
-  bool dp = (_displayBuffer[_currentDigit] & GFDISPLAY7S_FLAG_DP) != 0;
+  updateBlinkState();
 
   // turn off the previous display
   digitalWrite(_commonDriverPins[(_currentDigit == 0) ? (_displaysCount - 1) : (_currentDigit - 1)], !_commonActiveLvl);
   // write the segment data to IO pins
-  writeSegmentPins(glyphCode, _effectBuffer[_currentDigit], dp);
+  writeSegmentPins(_displayBuffer[_currentDigit], _effectBuffer[_currentDigit]);
   // turn on the current display
   digitalWrite(_commonDriverPins[_currentDigit], _commonActiveLvl);
   // check if we're on the last display and start over
@@ -62,7 +67,7 @@ void GFDisplay7S::clear()
   _cursor = 0;
   for (uint8_t i = 0; i < _displayBufferSize; i++)
   {
-    _displayBuffer[i] = mapCharToGlyph(' ');
+    _displayBuffer[i] = charToSegments(' ');
     _effectBuffer[i] = 0;
   }
 }
@@ -106,7 +111,10 @@ void GFDisplay7S::noBlink()
 
 void GFDisplay7S::setBlinkInterval(uint16_t interval)
 {
-  _blinkInterval = interval;
+  if (_useISRTimebase)
+    _blinkInterval = (interval * 1000UL) / _isrPeriod;
+  else
+    _blinkInterval = interval;
 }
 
 void GFDisplay7S::setCursor(uint8_t pos)
@@ -119,9 +127,9 @@ void GFDisplay7S::setDecimalPoint(uint8_t digit, bool on)
   if (digit >= _displayBufferSize)
     return;
   if (on)
-    _displayBuffer[digit] |= GFDISPLAY7S_FLAG_DP;
+    _displayBuffer[digit] |= GFDISPLAY7S_DECIMAL_POINT_BIT;
   else
-    _displayBuffer[digit] &= ~GFDISPLAY7S_FLAG_DP;
+    _displayBuffer[digit] &= ~GFDISPLAY7S_DECIMAL_POINT_BIT;
 }
 
 size_t GFDisplay7S::write(uint8_t character)
@@ -129,65 +137,45 @@ size_t GFDisplay7S::write(uint8_t character)
   if (_cursor >= _displayBufferSize)
     return 0;
 
-  uint8_t glyph = mapCharToGlyph(character);
-  uint8_t dp = _displayBuffer[_cursor] & GFDISPLAY7S_FLAG_DP;
-  _displayBuffer[_cursor] = glyph | (dp ? GFDISPLAY7S_FLAG_DP : 0);
+  if (character == '.')
+  {
+    if (_cursor == 0)
+      return 0; // nothing to attach dot to
+    _displayBuffer[_cursor - 1] |= GFDISPLAY7S_DECIMAL_POINT_BIT;
+    return 1;
+  }
 
+  _displayBuffer[_cursor] = charToSegments(character);
   _cursor++;
   return 1;
 }
 
-uint8_t GFDisplay7S::mapCharToGlyph(uint8_t character)
+uint8_t GFDisplay7S::charToSegments(uint8_t c)
 {
-  // characters for digits from 0 to 9 map to 0x00 to 0x09
-  if (character >= '0' && character <= '9')
-    return character - '0';
-  // map ASCII leters corresponding to hex digits to the corresponding glyph positions in array
-  switch (character)
-  {
-  case 'A':
-  case 'a':
-    return 0x0A;
-  case 'B':
-  case 'b':
-    return 0x0B;
-  case 'C':
-  case 'c':
-    return 0x0C;
-  case 'D':
-  case 'd':
-    return 0x0D;
-  case 'E':
-  case 'e':
-    return 0x0E;
-  case 'F':
-  case 'f':
-    return 0x0F;
-  case ' ':
-    return 0x10;
-  case '-':
-    return 0x11;
-  default:
-    return 0x11; // unknown characters are mapped to the '-' glyph
-  }
+  if (c >= '0' && c <= '9')
+    return glyphSegments[c - '0'];
+  if (c >= 'A' && c <= 'F')
+    return glyphSegments[10 + (c - 'A')];
+  if (c >= 'a' && c <= 'f')
+    return glyphSegments[10 + (c - 'a')];
+  if (c == ' ')
+    return glyphSegments[16];
+  if (c == '-')
+    return glyphSegments[17];
+
+  return glyphSegments[17];
 }
 
-void GFDisplay7S::writeSegmentPins(uint8_t glyphCode, uint8_t effectFlags, bool dp)
+void GFDisplay7S::writeSegmentPins(uint8_t segmentValues, uint8_t effectFlags)
 {
   // if blinking is enabled and the blink variable is set, turn off the digit
   if ((effectFlags & GFDISPLAY7S_FLAG_BLINK) && _blinkVar)
-    glyphCode = mapCharToGlyph(' ');
+    segmentValues = charToSegments(' ');
 
   // iterate over segment pins and set them according to the glyph code
   for (uint8_t i = 0; i < NUM_SEGMENTS; i++)
   {
-    if (i == 7)
-    {
-      pinWrite(_segmentPins[i], dp ? _segmentActiveLvl : !_segmentActiveLvl);
-      continue;
-    }
-
-    if (glyphSegments[glyphCode] & (1 << i))
+    if (segmentValues & (1 << i))
       pinWrite(_segmentPins[i], _segmentActiveLvl);
     else
       pinWrite(_segmentPins[i], !_segmentActiveLvl);
@@ -204,7 +192,29 @@ void GFDisplay7S::shutDownDisplays()
     pinWrite(_commonDriverPins[i], !_commonActiveLvl);
 }
 
-void GFDisplay7S::pinWrite(uint8_t pin, uint8_t val)
+void GFDisplay7S::updateBlinkState()
+{
+  if (!_useISRTimebase)
+  {
+    uint32_t now = millis();
+    if (now - _blinkTimer >= _blinkInterval)
+    {
+      _blinkTimer = now;
+      _blinkVar = !_blinkVar;
+    }
+  }
+  else
+  {
+    // ISR cycle-based mode
+    if (++_blinkTimer >= _blinkInterval)
+    {
+      _blinkTimer = 0;
+      _blinkVar = !_blinkVar;
+    }
+  }
+}
+
+inline void GFDisplay7S::pinWrite(uint8_t pin, uint8_t val)
 {
   if (pin != GFDISPLAY7S_UNUSED_PIN)
     digitalWrite(pin, val);
