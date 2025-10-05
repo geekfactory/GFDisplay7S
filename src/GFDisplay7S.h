@@ -124,7 +124,7 @@ public:
    *
    * @param interval The blink interval in milliseconds.
    */
-  void setBlinkInterval(uint32_t interval);
+  void setBlinkInterval(uint16_t interval);
 
   /**
    * @brief Sets the cursor to a specific position on the display.
@@ -221,7 +221,7 @@ protected:
   /**
   Set to true if the process() function is called from a timer interrupt at a fixed frequency.
   */
-  const bool _useISRTimebase = false;
+  const bool _useISRTimebase;
 
   /**
   Cursor that controls where the next digit will be written

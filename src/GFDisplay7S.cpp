@@ -4,7 +4,7 @@
 static const uint8_t glyphSegments[18] = {0x3F, 0x06, 0x5b, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71, 0x00, 0x40};
 
 GFDisplay7S::GFDisplay7S(const uint8_t *const segmentPins, const uint8_t *const commonDriverPins, const uint8_t displaysCount, uint32_t refreshPeriod, uint8_t segmentActiveLvl, uint8_t commonActiveLvl)
-    : _segmentPins(segmentPins), _commonDriverPins(commonDriverPins), _displaysCount(displaysCount), _useISRTimebase(refreshPeriod > 0), _segmentActiveLvl(segmentActiveLvl), _commonActiveLvl(commonActiveLvl)
+    : _segmentPins(segmentPins), _commonDriverPins(commonDriverPins), _displaysCount(displaysCount), _segmentActiveLvl(segmentActiveLvl), _commonActiveLvl(commonActiveLvl), _useISRTimebase(refreshPeriod > 0)
 {
   _isrPeriod = refreshPeriod;
 }
