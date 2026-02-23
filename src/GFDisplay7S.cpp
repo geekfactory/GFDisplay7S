@@ -150,6 +150,16 @@ size_t GFDisplay7S::write(uint8_t character)
   return 1;
 }
 
+size_t GFDisplay7S::writeRaw(uint8_t segmentValues)
+{
+  if (_cursor >= _displayBufferSize)
+    return 0;
+
+  _displayBuffer[_cursor] = segmentValues;
+  _cursor++;
+  return 1;
+}
+
 uint8_t GFDisplay7S::charToSegments(uint8_t c)
 {
   if (c >= '0' && c <= '9')

@@ -156,6 +156,17 @@ public:
    */
   virtual size_t write(uint8_t);
 
+  /**
+   * @brief Writes raw segment values to the display buffer and advance the cursor.
+   * 
+   * Writes raw segment values to the current cursor position and moves the cursor to the next position.
+   * The segment values should be provided as a byte where each bit represents a segment
+   * (bit 0 = segment a, bit 1 = segment b, ..., bit 7 = decimal point).
+   * 
+   * This function allows writing custom segment patterns that may not correspond to standard characters.
+   */
+  size_t writeRaw(uint8_t segmentValues);
+
   // import other write forms from print class
   using Print::write;
 
