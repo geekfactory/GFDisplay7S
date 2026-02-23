@@ -2,7 +2,11 @@
    GeekFactory - "INNOVATING TOGETHER"
    www.geekfactory.mx
 
-   Basic example for GFDisplay7S, this example illustrates how to print numbers on the display array.
+   Example of how to use the GFDisplay7S library in a cooperative multitasking environment,
+   where the display refreshing is performed in the main loop instead of a timer interrupt.
+   
+   This example is useful for platforms that don't support timer interrupts or when you want to
+   keep the code simple without using interrupts.
 */
 #include <GFDisplay7S.h>
 
@@ -32,11 +36,18 @@ void setup() {
 }
 
 void loop() {
-  // Refresh the display (call this frequently)
-  display7s.process();
+  // do other processing in a non-blocking fashion here...
 
-  // Small delay to control refresh rate
-  // Smaller delays = smoother display, but more CPU usage
-  // In practical use, replace this with a timer ISR for best performance
-  delay(3);
+  // do_some_stuff();
+
+  // then refresh the display array as needed
+  static uint32_t lastDisplayScan = 0;
+  uint32_t now = micros();
+  // check if it's time to refresh the display array
+  if ((uint32_t)(now - lastDisplayScan) >= 3000) {
+    // call the process methond
+    display7s.process();
+    // schedule next execution
+    lastDisplayScan += 3000;
+  }
 }
